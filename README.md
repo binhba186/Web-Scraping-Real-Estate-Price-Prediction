@@ -164,11 +164,15 @@ Models are compared using:
 - **Machine learning** (scikit-learn regression models)
 - **Evaluation & visualization** (matplotlib / seaborn)
 
----
 
 ## 7. Project Outcomes
 - Built a fully automated pipeline to collect, clean, and structure real-world real estate data from the web at scale.
 - Engineered high-quality features from noisy listing data and trained multiple regression models to accurately predict house prices.
 - Delivered actionable pricing insights by identifying key property attributes driving price variation across locations.
 
+##  Team Members
+- Pham Le Hong Duc
+- Truong Binh Ba
+- Bach Ngoc Le Duy
+- Hoang Minh Hien
 
