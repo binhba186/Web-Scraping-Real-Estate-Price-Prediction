@@ -81,80 +81,68 @@ Examples:
 
 ## 5. Project Stages (End-to-End Pipeline)
 
-## Stage 1 — URL Engineering & Dictionaries
+## Stage 1 — URL Engineering & Dictionaries  
 
-### Goal
-Create a systematic way to crawl across **all provinces/cities** and **districts** by generating URL tails and mapping them to human-readable names.
+The first stage creates a systematic, scalable way to crawl across the entire country by generating URL patterns for **all provinces/cities and their districts**. Instead of manually hardcoding targets, the workflow builds a consistent mapping from URL “tails” (crawlable endpoints) to human-readable geographic names. This ensures that the crawler can iterate across the full geographic hierarchy and remain maintainable if the site structure changes slightly.
 
-### Methods Used
-- HTML parsing utilities (e.g., `BeautifulSoup`)
-- URL tail generation strategy
-- City/Province dictionary
-- District dictionary per city/province
+The notebook uses HTML parsing utilities (commonly **BeautifulSoup**) to discover and validate location endpoints. The key idea is to separate (a) URL construction logic and (b) meaning/labels that humans interpret. A **city/province dictionary** maps location identifiers to display names, and a **district dictionary per city/province** stores the nested structure needed to expand crawl coverage reliably.
 
-## Stage 2 — Web Crawling (Data Collection)
+This stage produces the dictionaries and URL target sets that are used as the “routing system” in the crawling stage. In practice, it becomes the backbone of an automated crawl plan: *for each city → for each district → crawl listing pages*.
 
-### Goal
-Collect listing data and extract structured fields from HTML pages.
+---
 
-### Methods Used
-- Iterating through city/district URL targets
-- Parsing listing content with HTML parsing
-- Regular expressions / string extraction where needed
-- Building a unified tabular dataset
+## Stage 2 — Web Crawling (Data Collection)  
 
+This stage collects listing data at scale and converts unstructured HTML pages into a structured dataset. The crawler iterates through the city/district targets created in Stage 1, fetches listing pages, and extracts standardized fields into a unified table.
 
-## Stage 3 — Data Preprocessing & Feature Engineering
+The crawling process loops through all location targets, parses listing content using HTML parsing, and performs targeted string extraction (regular expressions or rule-based parsing) where the website does not provide clean structured tags. The project standardizes the extracted results into a single tabular dataset so downstream preprocessing and modeling can operate consistently.
 
-### Key Problems Addressed
-- Mixed-type and missing values (strings in numeric fields)
-- Inconsistent price formats (HTML vs description vs price/m²)
-- Special price values (e.g., `"Thỏa thuận"` → missing/None)
-- Unit normalization (e.g., thousand / million / billion conversions)
+The crawl exports an initial dataset (commonly stored as **Initial Data.xlsx** or a similar file). At this point the dataset is intentionally “raw but structured”: it contains important fields, but still includes missing values, mixed types, inconsistent price formats, and potentially out-of-scope listings that must be filtered later.
 
-### Typical Transformations
-- Drop invalid/out-of-scope rows (e.g., non-house listings)
-- Convert numeric fields (`area`, `rooms`, `floors`, etc.)
-- Create clean price variables:
-  - Split price tokens into `(value, unit)`
-  - Convert into a consistent unit (commonly **billion VND**)
-- Encode booleans (amenities/legal flags) into 0/1
-- Export cleaned modeling dataset  
-  (commonly saved as `Handled Data.xlsx`)
+---
 
+## Stage 3 — Data Preprocessing & Feature Engineering  
+### Key Problems Addressed  
+Real-world listing data is noisy. Numeric fields are often stored as text, units may vary, price may appear as “negotiable” (*Thỏa thuận*), and the same concept may be expressed differently across pages. This stage focuses on transforming raw collected fields into a consistent modeling dataset.
 
-## Stage 4 — Modeling & Evaluation
+Mixed-type values are handled by converting numeric-like strings into numbers and treating non-parsable cases as missing. Price is the most complex field: it can appear in multiple formats (total price, price per m², or embedded in description) and in multiple units (thousand/million/billion VND). The preprocessing logic normalizes these representations into consistent variables so model training is meaningful and comparable across listings.
 
-### Goal
-Train regression models to predict:
-- **Target variable:** `Giá` (house price)
+### Typical Transformations  
+The pipeline removes invalid/out-of-scope rows (for example, non-house listings if the crawl endpoint includes multiple real-estate types). It cleans and converts area, room counts, floors, and other structural attributes into numeric columns. Price variables are reconstructed through tokenization and normalization: price text is split into components (value + unit), then converted into a single standard unit (commonly **billion VND**) for the regression target.
 
-### Feature Selection
-- Remove non-predictive / leakage / unstable fields where needed  
-  (example: drop `Ngày đăng`, lat/long depending on experiment scope)
+Binary signals—amenities and legal flags—are encoded into 0/1 features, ensuring they can be used by linear models and tree models without additional handling. Intermediate “data check” exports may be produced during iterative cleaning, and the final output is a cleaned modeling dataset commonly saved as **Handled Data.xlsx**.
 
-### Methods Used
-#### A) PCA (Exploratory)
-- PCA is used to analyze variance structure and dimensionality behavior of the feature set.
-- Helps understand redundancy and complexity of the engineered features.
+A final modeling-ready dataset with:
+- stable numeric features,
+- encoded categorical/boolean indicators,
+- a clean target variable representing house price in a consistent unit.
 
-#### B) Regression Models Compared
-The notebook evaluates several baseline and tree-based regressors, including:
-- `LinearRegression`
-- `Ridge`
-- `Lasso`
-- `DecisionTreeRegressor`
-- `RandomForestRegressor`
-- `GradientBoostingRegressor`
+---
 
-#### C) Train/Test Procedure
-- `train_test_split` for hold-out evaluation
+## Stage 4 — Modeling & Evaluation  
 
-#### D) Metrics
-Models are compared using:
+The final stage builds regression models to predict **house price** from engineered features, then evaluates performance using standard regression metrics.
+
+### Feature Selection and Leakage Control  
+Not all fields should be used as predictors. Some fields are non-predictive identifiers (listing ID, raw URL), some are unstable metadata (posting date), and some may introduce leakage or create an unrealistic evaluation setting depending on the experiment (e.g., latitude/longitude might be included or excluded depending on whether the goal is purely attribute-based pricing vs. location-aware pricing). The modeling notebook selects an appropriate feature set to ensure the results reflect realistic predictive performance.
+
+### Methods Used  
+The workflow includes **PCA as an exploratory step** to understand the variance structure and redundancy across engineered features. PCA is not necessarily used as the final model, but it helps explain dimensionality behavior and feature correlation patterns that influence model choice.
+
+Multiple regressors are compared, including linear baselines and tree-based methods:
+- LinearRegression
+- Ridge
+- Lasso
+- DecisionTreeRegressor
+- RandomForestRegressor
+- GradientBoostingRegressor
+
+A hold-out evaluation strategy is used via `train_test_split`, and performance is compared using:
 - **MAE** (Mean Absolute Error)
 - **MSE** (Mean Squared Error)
 - **R²** (Coefficient of Determination)
+
+A model comparison view that highlights which approach best captures pricing patterns given the engineered features, along with interpretable metrics that can guide further improvement (feature refinement, hyperparameter tuning, or richer location modeling).
 
 
 ## 6. Tech Stack
